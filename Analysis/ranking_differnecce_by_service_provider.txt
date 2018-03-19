@@ -1,0 +1,96 @@
+Communication of motivation: why do we care?
+Research questions of interest: what do you want to find out?
+Answers to research questions: what have you uncovered?
+
+
+< Data - Web scraping>
+장르같은 음원정보가 같이 나오면 좋고, 안나오면 노래와 장르가 있는 info page scraping한담에 join
+
+< Analysis >
+자세하보면 움원 사이트마다 랭킹이 다르더라
+->많은 streaming service의 daily ranking은 얼마나 다른ㄷㅏ? 다르면 왜?
+-> 가입자분석-> 유료?무료? 연령,직업,지역,성별
+-> 공급자분석 : 특화분야? 마켓 카테고라제이션, 타겟,
+-계열사.협력사,광고성향, 레버뉴
+--> which is the trend setter comparing with the grammy awards 
+
+<첫화면>
+- global sphere(shiny sphere?)
+- 전세계 음원 사용자수
+- (탭은 각 회사별!!)
+
+- ranking 결과별로 각 서비스 화사를 클러스터링한다.
+- 각 클러스터에 어떤 유의점이 있는가?
+- 다른 클러스터로 구분되는 이유는 무엇일까?
+- (연령, 지역, 장르, 유료 . ...)
+-  어떤 서비스가 대표성을 띄는가?
+
+각 사이트에서 한달치 daily ranking정보를 받는다.
+너무 rank 성향이 동떨어지는 사이트는 배제한다. (물론 drop 이유를 찾아볼것!!)
+
+0) 한달간의 변동성을 각 site별로 보고, 다시 여러 방법으로 교차 분석한다.
+1) 일일 또는 monthly ranking을 각 site별로 알아보고 유사점과 다른점을 찾아본다.
+2) ranking 통계를 통해 어떤 장르가 어떤 portion으로 사랑받는지 차트 해본다.
+3) 가장 사람받는 Top 20 아티스트들을 따로 분류하여 그들의 연관성을 파악한다. (성별, 장르, 연령, 국적, 정치성향, 그룹/솔로 ...)
+4) 기상정보와 연동하여 연관성을 파악한다
+5) 장르별로 가사를 수집하여 word cloud를 해 본다. -> 어떤 가사가 사랑받는가?
+
+ 
+
+Amazon Music Unlimited, 
+
+1) billboard hot100 - https://www.billboard.com/charts/hot-100
+2) Pandora - https://www.nextbigsound.com/charts/top-spins
+3) GooglePlayMusic - https://play.google.com/music/listen?u=0#/wtc
+4) SoundCloud - https://soundcloud.com/charts/top
+5) Spotify - https://spotifycharts.com/regional (이게 global 부터 지역별로 다 있는데....일단은 ???)
+6) Apple iTunes - https://www.apple.com/itunes/charts/songs/  (iTunes Monthly Visitor는 얼마야?)
+7) YouTube Music Top100(US) - https://artists.youtube.com/charts/tracks
+8) last.fm - https://www.last.fm/music/Rank+1
+9) jango - http://www.jango.com/stations/263448187/tunein
+10) Slacker - https://www.slacker.com/station/todays-hits
+11) 
+
+
+- 날짜데이와 날씨데이터를 연동하고, 이걸 daily top 10 rank와 비교해서 통계를 내보자 !!!
+(노래 제목, 장르, lyrics ...)
+
+날짜 선택하면, 각 노래회사(SiriusXM Internet Radio, Apple Music, Amazon Music Unlimited, Google Play Music, Pandora Internet Radio)에서 제공하는 실시간 top rank list 가져와서 table화 할것.
+
+
+일단 simple하게 기간, 노래(또는 가수) 선택하면 국가별 그 노래 ranking을 한 화면에 선으로 보여주자 !!!
+(이송 그래픽 툴 괜찮은듯) ==> ggplot + shiny theme(black background)
+
+--> 국가별 rank다 확연히 다를때 그 국가의 개요(날씨, 위치, 등의 기본 개요 보여주면?)
+
+
+차트는 데이터와 병행~~~ !!
+
+
+Communication of motivation: why do we care?
+
+Research questions of interest: what do you want to find out?
+
+Answers to research questions: what have you uncovered?
+
+================================================================================
+
+Research Question
+
+1. What's the best time to visit each of the national park?
+
+2.Which national park campground is the most popular?
+
+3.How to select the best camping spot during your trip to national parks?
+
+ 
+
+Web Scraping
+
+Wikipedia - which included total visitors of each national parks in 2016
+
+Campground - which included campground's rating, reviews and accommodations in each national parks
+
+National Park Service -which included total visitors and campers in each month
+
+TripAdvisor - which included reviews and rating of different national parks

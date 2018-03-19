@@ -1,0 +1,14 @@
+import time
+from selenium import webdriver
+
+fp = webdriver.FirefoxProfile()
+fp.set_preference('network.proxy.type', 1)
+fp.set_preference('network.proxy.socks', '127.0.0.1')
+fp.set_preference('network.proxy.socks_port', 9050)
+driver = webdriver.Firefox(fp)
+
+driver.get('https://api.ipify.org')
+print(driver.find_element_by_tag_name('pre').text)
+driver.get('https://check.torproject.org/')
+time.sleep(3)
+driver.quit()

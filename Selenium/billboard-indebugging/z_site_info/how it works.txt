@@ -1,0 +1,5 @@
+<The Hot 100> : Radio Airplay + Sales Data + Streaming Data
+This week's most popular songs across all genres, ranked by radio airplay audience impressions as measured by Nielsen Music, sales data as compiled by Nielsen Music and streaming activity data provided by online music sources.
+
+<Billboard 200> : Slaes Data + Streaming Data
+he Billboard 200 chart ranks the most popular albums of the week, as compiled by Nielsen Music, based on multi-metric consumption (blending traditional album sales, track equivalent albums, and streaming equivalent albums).

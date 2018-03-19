@@ -1,0 +1,7 @@
+proxies = {'http': 'socks5://127.0.0.1:9050',
+           'https': 'socks5://127.0.0.1:9050'}
+
+resp = r.get('https://api.ipify.org/').text
+print('Original IP: ', resp)
+resp = r.get('https://api.ipify.org/', proxies=proxies).text
+print('Proxy IP: ', resp)

@@ -1,0 +1,24 @@
+Create a spider, try_tor.py, save it in spiders folder of your project and see if proxy is applied or not.
+
+
+2017-08-18 17:22:12 [stdout] INFO:     <img src="/torcheck/img/tor-not.png" class="onion">
+2017-08-18 17:22:12 [stdout] INFO: 
+2017-08-18 17:22:12 [stdout] INFO:   <h1 class="not">
+2017-08-18 17:22:12 [stdout] INFO: 
+2017-08-18 17:22:12 [stdout] INFO:       Congratulations. This browser is configured to use Tor.
+2017-08-18 17:22:12 [stdout] INFO: 
+2017-08-18 17:22:12 [stdout] INFO:   </h1>
+2017-08-18 17:22:12 [stdout] INFO:   <p>Your IP address appears to be:  <strong>185.170.41.8</strong></p>
+2017-08-18 17:22:12 [stdout] INFO: 
+2017-08-18 17:22:12 [stdout] INFO: 
+2017-08-18 17:22:12 [stdout] INFO: 
+2017-08-18 17:22:12 [stdout] INFO:           <p class="security">
+2017-08-18 17:22:12 [stdout] INFO:             However, it does not appear to be Tor Browser.<br>
+2017-08-18 17:22:12 [stdout] INFO:             <a href="https://www.torproject.org/download/download-easy.html">Click here to go to the download page</a>  <=== HERE
+2017-08-18 17:22:12 [stdout] INFO:           </p>
+2017-08-18 17:22:12 [stdout] INFO: 
+
+
+==> Congratulations. This browser is configured to use Tor.
+
+This means Tor has been setup and use proxy for each request.
