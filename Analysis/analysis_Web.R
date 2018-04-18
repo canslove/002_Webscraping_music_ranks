@@ -32,9 +32,7 @@ library(plotly)
 #library(xlsx) 
 #library(foreign) 
 
-
-#setwd("E:/Data.Science/NYCDSA/40_Projects/Shiny/Data")
-setwd("C:/Users/SAMSUNG/Documents/A.MyDoc/A.DriveE/DataScience/NYCDSA/40_Projects/WebScraping/Analysis")
+setwd("C:/Users/SAMSUNG/Documents/A.MyDoc/A.DriveE/DataScience/NYCDSA/40_Projects/C02.WebScraping/Github/Analysis")
 
 # Data Read/Modify/Write --------------------------------
 rm(list=ls())
@@ -43,12 +41,12 @@ N_RANK = 100
 
 #raw.dt <- fread("../Data/data.csv", stringsAsFactors = F)
 #raw.df <- as.data.frame(raw.dt)
-df_spotify = read.csv('./z_datasets/spotify_wkly.csv', stringsAsFactors=FALSE)
-df_youtube = read.csv('./z_datasets/youtubemusic.csv', stringsAsFactors=FALSE, header = FALSE,
+df_spotify = read.csv('./datasets/spotify_wkly.csv', stringsAsFactors=FALSE)
+df_youtube = read.csv('./datasets/youtubemusic.csv', stringsAsFactors=FALSE, header = FALSE,
                       col.names = c('start_date','end_date','rank','title','artist','views'))
-df_billboard = read.csv('./z_datasets/acharts_singles.csv', stringsAsFactors=FALSE)
-df_billboard_albums = read.csv('./z_datasets/acharts_albums.csv', stringsAsFactors=FALSE)
-df_itunes = read.csv('./z_datasets/itunes.csv', stringsAsFactors=FALSE)
+df_billboard = read.csv('./datasets/acharts_singles.csv', stringsAsFactors=FALSE)
+df_billboard_albums = read.csv('./datasets/acharts_albums.csv', stringsAsFactors=FALSE)
+df_itunes = read.csv('./datasets/itunes.csv', stringsAsFactors=FALSE)
 
 # check data Nas --------------------------------
 df_list = c('df_spotify', 'df_youtube', 'df_billboard', 'df_billboard_albums', 'df_itunes')
@@ -214,6 +212,7 @@ df_sel <- df_total %>%
   filter(start_date >= (date_range[1]) & start_date <= (date_range[2])) %>%
   filter(rank<=rank_range[2] & rank >= rank_range[1]) %>%
   mutate(rank_bar = as.numeric(11-rank))
+write.csv(df_sel, file='write_csv/df_sel.csv') # for plotly
 
 p <- ggplot(df_sel, aes(x=-rank, y=rank_bar, label=title, group=source )) +
   geom_bar(aes(fill= source), stat = "identity") + #, position = "dodge") +
@@ -277,10 +276,15 @@ title(main="\n\n\n\n Artists who are registered in Top100 more than 30 times",ou
       cex.main = 2,   font.main= 2, col.main= "blue")
 # ==> Now find the 10 artists who has a lot of frequency
 
+# ==========================================================================================
+# list up what singer were popular in common among three sites =============================
+# ==========================================================================================
+
 # Text mining for frequency calculation to use Wordcloud2 ----------------------
 FreqMining <- function(INPUT){
   d_artist_sp1 <- tolower(INPUT)
-  d_artist_sp2 <- strsplit(d_artist_sp1, "\\W")
+  #d_artist_sp2 <- strsplit(d_artist_sp1, "\\W")
+  d_artist_sp2 <- as.factor(d_artist_sp1)
   d_artist_sp3 <- unlist(d_artist_sp2)
   freq<-table(d_artist_sp3)
   freq1<-sort(freq, decreasing=TRUE)
@@ -295,7 +299,23 @@ tm_yt = FreqMining(d_artist_yt)
 tm_bb = FreqMining(d_artist_bb)
 min_len = min(length(tm_sp$word), length(tm_yt$word), length(tm_bb$word) )
 tm_all = cbind(tm_sp[1:min_len,],tm_yt[1:min_len,],tm_bb[1:min_len,])
+write.csv(tm_all, file = "write_csv/tm_all.csv")
 head(tm_all,20)
+
+# Using inner_join (artists) ---
+tm_sp_yt_injoin = inner_join(tm_sp, tm_yt, by = "word")
+tm_all_injoin = inner_join(tm_sp_yt_injoin, tm_bb, by = "word")
+colnames(tm_all_injoin) <- c("artist", "Spotify", "YouTube", "BillBoard")
+write.csv(tm_all_injoin, file = "write_csv/tm_all_injoin.csv")
+
+# Frequency mining (titles) Not Good for the results : Think more ---
+tmt_sp = FreqMining(df_sp$title)
+tmt_yt = FreqMining(df_yt$title)
+tmt_bb = FreqMining(df_bb$title)
+tmt_sp_yt_injoin = inner_join(tmt_sp, tmt_yt, by = "word")
+tmt_all_injoin = inner_join(tmt_sp_yt_injoin, tm_bb, by = "word")
+colnames(tmt_all_injoin) <- c("title", "Spotify", "YouTube", "BillBoard")
+write.csv(tmt_all_injoin, file = "write_csv/tmt_all_injoin.csv")
 
 # Wordcloud2 -----------------------------------------
 #require(devtools)
@@ -329,37 +349,55 @@ wordcloud2(tm_bb, figPath = "./figures/billboard.png", size = 1.5,color = "black
 # Pie Charts  w/ Freq ==================================================================
 
 # frequency distribution
-h = c(mean(tm_sp$freq),mean(tm_yt$freq),mean(tm_bb$freq))
+#h = c(mean(tm_sp$freq),mean(tm_yt$freq),mean(tm_bb$freq))
+h = c(20,20,20)
 p <- ggplot(data = tm_sp, aes(x = word, y = freq, fill = word)) +
   geom_bar(stat = "identity", show.legend = FALSE) +
   geom_hline(aes(yintercept = h[1])) +
-  ggtitle(paste0("Word and its frequency in Spotify Top100 (", ViewPeriod[1], "~", ViewPeriod[2] ,")")) +
-  geom_text(aes(0, h[1], label=paste0('average_frequency', as.character(format(round(h[1], 2), nsmall = 2))), hjust=-2, vjust=-1)) +
+  xlab("Artists") +
+  ylab("Number of Frequency ranked in Top 100") +
+  ggtitle(paste0("Artists and its Ranking frequency in Spotify Top100 (", ViewPeriod[1], "~", ViewPeriod[2] ,")")) +
+  geom_text(aes(0, h[1], label=paste0('cutoff_frequency', as.character(format(round(h[1], 2), nsmall = 2))), hjust=-2, vjust=-1)) +
   theme_bw()
-p
+q <- p + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+q
 ggplotly(p)
 
 p <- ggplot(data = tm_yt, aes(x = word, y = freq, fill = word)) +
   geom_bar(stat = "identity", show.legend = FALSE) +
   geom_hline(aes(yintercept = h[2])) +
-  ggtitle(paste0("Word and its frequency in Spotify Top100 (", ViewPeriod[1], "~", ViewPeriod[2] ,")")) +
-  geom_text(aes(0, h[2], label=paste0('average_frequency', as.character(format(round(h[2], 2), nsmall = 2))), hjust=-2, vjust=-1)) +
+  xlab("Artists") +
+  ylab("Number of Frequency ranked in Top 100") +
+  ggtitle(paste0("Artists and its Ranking frequency in YouTube Top100 (", ViewPeriod[1], "~", ViewPeriod[2] ,")")) +
+  geom_text(aes(0, h[2], label=paste0('cutoff_frequency', as.character(format(round(h[2], 2), nsmall = 2))), hjust=-2, vjust=-1)) +
   theme_bw()
-p
+q <- p + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+q
 ggplotly(p)
 
 p <- ggplot(data = tm_bb, aes(x = word, y = freq, fill = word)) +
   geom_bar(stat = "identity", show.legend = FALSE) +
   geom_hline(aes(yintercept = h[3])) +
-  ggtitle(paste0("Word and its frequency in Spotify Top100 (", ViewPeriod[1], "~", ViewPeriod[2] ,")")) +
-  geom_text(aes(0, h[3], label=paste0('average_frequency', as.character(format(round(h[3], 2), nsmall = 2))), hjust=-2, vjust=-1)) +
+  xlab("Artists") +
+  ylab("Number of Frequency ranked in Top 100") +
+  ggtitle(paste0("Artists and its Ranking frequency in Billboard Top100 (", ViewPeriod[1], "~", ViewPeriod[2] ,")")) +
+  geom_text(aes(0, h[3], label=paste0('cutoff_frequency', as.character(format(round(h[3], 2), nsmall = 2))), hjust=-2, vjust=-1)) +
   theme_bw()
-p
+q <- p + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+q
 ggplotly(p)
 
-# Word-Freq df cleaning cut-off = 30 freq.
-title_freq = read.csv('./y_codeoutput/title_freq.csv', stringsAsFactors=FALSE)
-title_freq$word = tolower(title_freq$word)
+# Word-Freq df cleaning cut-off = 30 freq. --
+#title_freq = read.csv('./y_codeoutput/title_freq.csv', stringsAsFactors=FALSE)
+#title_freq$word = tolower(title_freq$word)
+tm_sp10over = tm_sp[-c(1:10),]
+sum(tm_sp10over$freq)
+
+tm_sp10 <- tm_sp[c(1:10),] %>% mutate(source = "spotify") # tm_sp10$source = "spotify"
+tm_yt10 <- tm_yt[c(2:11),] %>% mutate(source = "youtube")
+tm_bb10 <- tm_bb[c(1:10),] %>% mutate(source = "billboard")
+title_freq = rbind(tm_sp10, tm_yt10, tm_bb10)
+title_freq
 
 # Add addition columns to data, needed for donut plot.
 title_freq <- title_freq %>% 
@@ -378,38 +416,22 @@ lbls_sp = title_freq$lbls[title_freq$source=="spotify"]
 lbls_yt = title_freq$lbls[title_freq$source=="youtube"]
 lbls_bb = title_freq$lbls[title_freq$source=="billboard"]
 
-par(mfrow = c(1, 3)) # multiframe by row
+#par(mfrow = c(1, 3), backgroundColor = "black") # multiframe by row
+par(mfrow = c(1, 3), backgroundColor = "yellow") # multiframe by row
 pie(tmp_sp,labels = lbls_sp, col=rainbow(length(lbls_sp)), main="Spotify")
-pie(tmp_sp,labels = lbls_yt, col=rainbow(length(lbls_yt)), main="YouTube")
-pie(tmp_sp,labels = lbls_bb, col=rainbow(length(lbls_bb)), main="Billboard")
+pie(tmp_yt,labels = lbls_yt, col=rainbow(length(lbls_yt)), main="YouTube")
+pie(tmp_bb,labels = lbls_bb, col=rainbow(length(lbls_bb)), main="Billboard")
 
-# pie chart more beautiful picture find !!!!!
-##############################################
-###  Completed by this point
-##############################################
-
-#------------------------------------------------------------------
-
-# Mosaic Plot
-#   Divide the data according to different variables, and then use rectangles of different
-#   sizes to represent different groups of data.
-
-#install.packages("vcd")
-library(vcd)
-mosaic(Survived ~ Class + Sex, data=Titanic, shade=T,
-       highlighting_fill=c('red4',"skyblue"),
-       highlighting_direction="left")
-# ------------------------------------------------------------
-
-
-
-
-
-
-
+write.csv(tmp_sp, file='write_csv/tmp_sp.csv') # for plotly
+write.csv(tmp_yt, file='write_csv/tmp_yt.csv') # for plotly
+write.csv(tmp_bb, file='write_csv/tmp_bb.csv') # for plotly
+write.csv(lbls_sp, file='write_csv/lbls_sp.csv') # for plotly
+write.csv(lbls_yt, file='write_csv/lbls_yt.csv') # for plotly
+write.csv(lbls_bb, file='write_csv/lbls_bb.csv') # for plotly
 
 
 # * Slope chart(p112) -> show how ranking differ site from site
+### ---- Title for each artists (head(tm_all_injoin,11))
 titlelist <- function(artist_name){
   tmp <- df_total %>%
     # mutate(artist = tolower(artist)) %>%
@@ -418,29 +440,24 @@ titlelist <- function(artist_name){
   list_tmp = unique(tmp$title)
   return(list_tmp)
 }
-#c('Post Malone', 'Kodak Black', 'Taylor swift', 'Ed Sheeran', 'Imagine Dragons')){
-Lpmalone = titlelist('Post Malone')
-Lkodak = titlelist('Kodak Black')
-Ltaylor = titlelist('Taylor swift')
-Lsheeran = titlelist('Ed Sheeran')
-Limagine = titlelist('Imagine Dragons')
 
-# To merge the same title 
-Lpmalone = unique(tolower(Lpmalone))
-Lkodak = unique(tolower(Lkodak))
-#Ltaylor = Ltaylor[-c(7, 13)]
-Ltaylor = unique(tolower(Ltaylor))
-Lsheeran = unique(tolower(Lsheeran))
-Limagine = unique(tolower(Limagine))
+singer_list = head(tm_all_injoin,11)[,1]
+singer_list
+
+tag_list = c()
+for (i in 1:length(singer_list)){
+  t_name = paste0('L_', strsplit(singer_list[i], ' ')[[1]][1])
+  tag_list = c(tag_list,t_name)
+  assign(t_name, unique(tolower(titlelist(singer_list[i]))) )
+}
+singer_list
+tag_list
 
 # rank trend comaprison b/w service provider
 plot_trend <- function(at_sel, title_sel){
   df_total %>%
-    #mutate(artist = tolower(artist)) %>%
     filter(artist == at_sel) %>%
-    #mutate(title = tolower(title)) %>%
     filter(title %in% title_sel) %>%
-    #group_by(source) %>%
     ggplot(aes(x=start_date, y=-1*rank, group = source)) +
     geom_point(aes(color = source)) +
     geom_line(aes(color = source)) +
@@ -455,106 +472,231 @@ plot_trend <- function(at_sel, title_sel){
           axis.title.x = element_text(color="grey", size=12),#, face="bold"),
           axis.title.y = element_text(color="grey", size=12))#, face="bold"))
 }
-# --------------------------------------------------
-# 'Post Malone' : c("rockstar","congratulations","go flex","candy paint", "i fall apart", "white iverson")
-# 'Kodak Black' : c("roll in peace", "transportin", "tunnel vision", "codeine dreaming", "no flockin", "patty cake","halloween", "patty cake", "too much money", "roll in peace")   )
-# 'Taylor swift' : c(""Look What You Made Me Do", "...ready for it?", "gorgeous", "call it what you want", "end game", "i did something bad", "delicate")
-# 'Ed Sheeran' : c("shape of you", "perfect", "thinking out loud") # derivative  should be merged again
-# 'Imagine Dragons' : c("thunder", "believer")
-# --------------------------------------------------
-at_sel = tolower("Post Malone")
-#title_sel = tolower(c("rockstar", "rockstar (feat. 21 savage)"))
-#title_sel = tolower(c("congratulations", "congratulations (feat. quavo)"))
-#title_sel = tolower(c("candy paint"))
-#title_sel = tolower(c("i fall apart"))
-plot_trend(at_sel,title_sel)
 
-at_sel = tolower("Kodak Black")
-#title_sel = tolower(c("roll in peace", "roll in peace (feat. xxxtentacion)"))
-title_sel = tolower(c("transportin'"))
-plot_trend(at_sel,title_sel)
+sel_list = cbind(singer_list, tag_list)
+# --------------------
+# singer_list
+# --------------------
+# "post malone"     
+# "kendrick lamar"  
+# "migos"           
+# "lil uzi vert"    
+# "xxxtentacion"    
+# "kodak black"     
+# "ed sheeran"     
+# "camila cabello"  
+# "taylor swift"    
+# "imagine dragons" 
+# "khalid"
+# --------------------
 
-at_sel = tolower("Taylor swift")
-#title_sel = tolower(c("look what you made me do"))
-#title_sel = tolower(c("...ready for it?", "ready for it?"))
-#title_sel = tolower(c("gorgeous"))
-title_sel = tolower(c("end game", "end game (feat. ed sheeran & future)"))
-plot_trend(at_sel,title_sel)
+for (songs in tag_list){
+  print(paste("------- ", songs, "--------"))
+  print(get(songs))
+}
 
-at_sel = tolower("Ed Sheeran")
-#title_sel = tolower(c("shape of you"))
-#title_sel = tolower(c("perfect", "perfect duet (ed sheeran & beyonc챕)", "perfect duet (feat. beyonc횋)", "perfect symphony (feat. andrea bocelli)", "perfect duet (ed sheeran & beyonc횋)"))
-plot_trend(at_sel,title_sel)
+print("There are too many songs for one singer !!!")
+print("Have to list up what songs were popular in common instead of singer !!")
 
-at_sel = tolower("Imagine Dragons")
-#title_sel = tolower(c("thunder"))
-title_sel = tolower(c("believer"))
-plot_trend(at_sel,title_sel)
+# ==========================================================================================
+# list up what songs were popular in common instead of singer ==============================
+# ==========================================================================================
+# Data cleaning function for removing (feat.) description in title ------------------------
+cleaning_df_w_factor <- function(df){
+  df[,] <- lapply(df, function(x) type.convert(as.character(x), as.is = TRUE))
+  for (i in 1:dim(df)[1]){
+    for (j in 1:dim(df)[2]){
+      #for (j in seq(1,6,2)){
+      a = gsub("[(].*[)]", "", df[i,j])
+      df[i,j] = trimws(a, which = 'both')
+    }
+  }
+  return(df)
+}
 
-# Join with genre -------------------
-df_itunes= subset(df_itunes, select = -c(date, release_date, artist))
-df_itunes$title <- tolower(df_itunes$title)
+cleaning_chr <- function(chr){
+  for (i in 1:length(chr)){
+      a = gsub("[(].*[)]", "", chr[i])
+      chr[i] = trimws(a, which = 'both')
+    }
+  return(chr)
+}
 
-df_spotify_genre <- left_join(df_spotify, df_itunes, by = "title")
-df_youtube_genre <- left_join(df_youtube, df_itunes, by = "title")
-df_billboard_genre <- left_join(df_billboard, df_itunes, by = "title")
-df_total_genre <- left_join(df_total, df_itunes, by = "title")
+# Text mining for frequency calculation to use Wordcloud2 ----------------------
+d_title_sp = tolower(df_sp$title)
+d_title_yt = tolower(df_yt$title)
+d_title_bb = tolower(df_bb$title)
 
-# frequency in genre for respective provider
-wordcloud(df_spotify_genre$genre, min.freq = 1, scale = c(2,0.5), random.color = TRUE)#, color = pal)
-wordcloud(df_youtube_genre$genre, min.freq = 1, scale = c(2,0.5), random.color = TRUE)#, color = pal)
-wordcloud(df_billboard_genre$genre, min.freq = 1, scale = c(2,0.5), random.color = TRUE)#, color = pal)
+d_title_sp = cleaning_chr(d_title_sp)
+d_title_yt = cleaning_chr(d_title_yt)
+d_title_bb = cleaning_chr(d_title_bb)
 
-freq_sp_genre = freq_cnt_(df_spotify_genre$genre)
-freq_yt_genre = freq_cnt_(df_youtube_genre$genre)
-freq_bb_genre = freq_cnt_(df_billboard_genre$genre)
-# ==> genre should be surveyed more to fill all the blank,
+ttm_sp = FreqMining(d_title_sp)
+ttm_yt = FreqMining(d_title_yt)
+ttm_bb = FreqMining(d_title_bb)
+min_len = min(length(ttm_sp$word), length(ttm_yt$word), length(ttm_bb$word) )
+ttm_all = cbind(ttm_sp[1:min_len,],ttm_yt[1:min_len,],ttm_bb[1:min_len,])
+write.csv(ttm_all, file = "write_csv/ttm_all.csv")
+head(ttm_all,20)
 
-# Hot to make Top 100 in each site -----------------------
-# 1) Sportify
-#     -> Total number of downloaded stream
-# 2) Youtube
-#     -> Total number of viewed music on YouTube by video, artist, track, and viral score:
-# 3) Billboard
-#     -> This week's most popular songs across all genres, 
-#        ranked by radio airplay audience impressions as measured by Nielsen Music, 
-#        sales data as compiled by Nielsen Music and streaming activity data provided by online music sources.
+# ttm_all_org = ttm_all
+# #ttm_all = read.csv("write_csv/ttm_all.csv", stringsAsFactors = FALSE, header = TRUE)[-1]
+# str(ttm_all) # factor levels exist - to update df, levels should be removed
+# ttm_all = cleaning_df_w_factor(ttm_all)
+# str(ttm_all) # factor levels removed.
+# write.csv(ttm_all, file = "write_csv/ttm_all.csv")
 
-genre_freq = read.csv('./y_codeoutput/genre_freq.csv', stringsAsFactors=FALSE)
-genre_freq$genre = tolower(genre_freq$genre)
+# Using inner_join (artists) -------------------
+ttm_sp_yt_injoin = inner_join(ttm_sp, ttm_yt, by = "word")
+ttm_all_injoin = inner_join(ttm_sp_yt_injoin, ttm_bb, by = "word")
+colnames(ttm_all_injoin) <- c("title", "Spotify", "YouTube", "BillBoard")
+tmp_singer_sp = cleaning_df_w_factor(unique(df_sp[,c("title","artist")]))
+ttm_all_injoin_artist = inner_join(ttm_all_injoin, unique(tmp_singer_sp), by = "title")
+write.csv(ttm_all_injoin, file = "write_csv/ttm_all_injoin.csv")
+write.csv(ttm_all_injoin_artist, file = "write_csv/ttm_all_injoin_artist.csv")
+
+threshold = 14
+title_in_common = paste0("over",threshold)
+assign(title_in_common, ttm_all_injoin_artist %>% filter(Spotify > threshold & YouTube > threshold & BillBoard > threshold))
+write.csv(get(title_in_common), file = "write_csv/title_in_common.csv")
+
+wordcloud2(ttm_sp, size = 1.0, backgroundColor = "black", minRotation = -pi/2, maxRotation = -pi/2)
+wordcloud2(ttm_yt, size = 1.0, backgroundColor = "black", minRotation = -pi/2, maxRotation = -pi/2)
+wordcloud2(ttm_bb, size = 1.0, backgroundColor = "black", minRotation = -pi/2, maxRotation = -pi/2)
+
+# Word-Freq df cleaning cut-off = 30 freq. --
+ttm_sp10over = ttm_sp[-c(1:10),]
+sum(ttm_sp10over$freq)
+
+ttm_sp10 <- ttm_sp[c(1:10),] %>% mutate(source = "spotify") # ttm_sp10$source = "spotify"
+ttm_yt10 <- ttm_yt[c(1:10),] %>% mutate(source = "youtube")
+ttm_bb10 <- ttm_bb[c(1:10),] %>% mutate(source = "billboard")
+title_freq = rbind(ttm_sp10, ttm_yt10, ttm_bb10)
+title_freq
+
 # Add addition columns to data, needed for donut plot.
-genre_freq <- genre_freq %>% 
+title_freq <- title_freq %>% 
   group_by(source) %>%
   mutate(fraction = freq/sum(freq)) %>%
   mutate(percentage = round(fraction*100)) %>%
   mutate(ymax = cumsum(fraction)) %>%
   mutate(ymin = c(0, head(ymax, n = -1))) %>%
-  mutate(lbls = paste(genre, percentage)) %>%  # add percents to labels 
+  mutate(lbls = paste(word, percentage)) %>%  # add percents to labels 
   mutate(lbls = paste(lbls, "%", sep=""))
 
-tmp_sp = as.numeric(unlist(as.list(genre_freq[genre_freq$source=="spotify","freq"])))
-tmp_yt = as.numeric(unlist(as.list(genre_freq[genre_freq$source=="youtube","freq"])))
-tmp_bb = as.numeric(unlist(as.list(genre_freq[genre_freq$source=="billboard","freq"])))
-lbls_sp = genre_freq$lbls[genre_freq$source=="spotify"]
-lbls_yt = genre_freq$lbls[genre_freq$source=="youtube"]
-lbls_bb = genre_freq$lbls[genre_freq$source=="billboard"]
+ttmp_sp = as.numeric(unlist(as.list(title_freq[title_freq$source=="spotify","freq"])))
+ttmp_yt = as.numeric(unlist(as.list(title_freq[title_freq$source=="youtube","freq"])))
+ttmp_bb = as.numeric(unlist(as.list(title_freq[title_freq$source=="billboard","freq"])))
+lbls_sp = title_freq$lbls[title_freq$source=="spotify"]
+lbls_yt = title_freq$lbls[title_freq$source=="youtube"]
+lbls_bb = title_freq$lbls[title_freq$source=="billboard"]
 
 par(mfrow = c(1, 3)) # multiframe by row
-pie(tmp_sp,labels = lbls_sp, col=rainbow(length(lbls_sp)), main="Spotify")
-pie(tmp_sp,labels = lbls_yt, col=rainbow(length(lbls_yt)), main="YouTube")
-pie(tmp_sp,labels = lbls_bb, col=rainbow(length(lbls_bb)), main="Billboard")
+pie(ttmp_sp,labels = lbls_sp, col=rainbow(length(lbls_sp)), main="Spotify")
+pie(ttmp_yt,labels = lbls_yt, col=rainbow(length(lbls_yt)), main="YouTube")
+pie(ttmp_bb,labels = lbls_bb, col=rainbow(length(lbls_bb)), main="Billboard")
+
+write.csv(ttmp_sp, file='write_csv/ttmp_sp.csv') # for plotly
+write.csv(ttmp_yt, file='write_csv/ttmp_yt.csv') # for plotly
+write.csv(ttmp_bb, file='write_csv/ttmp_bb.csv') # for plotly
+write.csv(lbls_sp, file='write_csv/lbls_sp.csv') # for plotly
+write.csv(lbls_yt, file='write_csv/lbls_yt.csv') # for plotly
+write.csv(lbls_bb, file='write_csv/lbls_bb.csv') # for plotly
 
 
+# * Slope chart(p112) -> show how ranking differ site from site
 
+# rank trend comaprison b/w service provider
+df_total_clean <- cleaning_df_w_factor(df_total)
+df_total_clean <- df_total_clean %>% 
+  mutate(start_date = as.Date(start_date, "%Y-%m-%d")) %>%
+  mutate(rank = as.numeric(rank))
 
+plot_trend <- function(at_sel, title_sel){
+  a <- df_total_clean %>%
+    filter(artist == at_sel) %>%
+    filter(title == title_sel) #%>%
+    #filter(title %in% title_sel) %>%
+  p <- ggplot(a, aes(x=start_date, y=-1*rank, group = source)) +
+    geom_point(aes(color = source)) +
+    geom_line(aes(color = source)) +
+    theme_wsj()+ scale_colour_wsj("colors6") +
+    ggtitle(paste0("Weekly Ranking Trend - ", at_sel,"(",title_sel,")")) + #Selected Artists") +
+    xlab("DATE") + ylab("RANKING") #+
+    #theme(plot.title = element_text(color="white", size=14, face="bold.italic"),
+    #      axis.title.x = element_text(color="grey", size=12),#, face="bold"),
+    #      axis.title.y = element_text(color="grey", size=12))#, face="bold"))
+  ggplotly(p)
+}
 
+# Title           |	Artist
+# 1-800-273-8255  |	Logic
+# bad at love     | Halsey
+# bank account    | Savage
+# believer        | Imagine Dragons
+# bodak yellow    | Cardi B
+# congratulations | Post Malone
+# gucci gang      | Lil Pump
+# havana          | Camila Cabello
+# i get the bag   | Gucci Mane
+# new rules       | Dua Lipa
+# plain jane      | A$AP Ferg
+# rockstar        | Post Malone
+# roll in peace   | Kodak Black
+# shape of you    | Ed Sheeran
+# sorry not sorry | Demi Lovato
+# thunder         | Imagine Dragons
+# young dumb & broke  | Khalid
+# mi gente        | J Balvin
+# no limit        | G-Eazy
 
+plot_trend(tolower('Logic'),'1-800-273-8255')
+plot_trend(tolower('Halsey'),'bad at love')
+#plot_trend(tolower('Savage'),'bank account')
+plot_trend(tolower('Imagine Dragons'),'believer')
+plot_trend(tolower('Cardi B'),'bodak yellow')
+plot_trend(tolower('Post Malone'),'congratulations')
+plot_trend(tolower('Lil Pump'),'gucci gang')
+plot_trend(tolower('Camila Cabello'),'havana')
+plot_trend(tolower('Gucci Mane'),'i get the bag')
+plot_trend(tolower('Dua Lipa'),'new rules')
+plot_trend(tolower('A$AP Ferg'),'plain jane')
+plot_trend(tolower('Post Malone'),'rockstar')
+plot_trend(tolower('Kodak Black'),'roll in peace')
+plot_trend(tolower('Ed Sheeran'),'shape of you')
+plot_trend(tolower('Demi Lovato'),'sorry not sorry')
+plot_trend(tolower('Imagine Dragons'),'thunder')
+plot_trend(tolower('Khalid'),'young dumb & broke')
+plot_trend(tolower('J Balvin'),'mi gente')
+plot_trend(tolower('G-Eazy'),'no limit')
 
+plot_trend(tolower('Taylor swift'),'look what you made me do')
+plot_trend(tolower('Taylor swift'),'...ready for it?')
+plot_trend(tolower('Taylor swift'),'end game')
+plot_trend(tolower('Post Malone'),'candy paint')
+plot_trend(tolower('Ed Sheeran'),'perfect')
+
+#-------
+# EOF
+#-------
+
+# -------------------------
+# Appendix for future use
+#------------------------------------------------------------------
+
+# Mosaic Plot
+#   Divide the data according to different variables, and then use rectangles of different
+#   sizes to represent different groups of data.
+
+#install.packages("vcd")
+library(vcd)
+mosaic(Survived ~ Class + Sex, data=Titanic, shade=T,
+       highlighting_fill=c('red4',"skyblue"),
+       highlighting_direction="left")
+# ------------------------------------------------------------
 
 
 # * Mosaic map for each week per sites -> show how different the ranking is
-
-
 
 # 1) Treemap(p75) for artist and title -> To find who and which is most or least significant.
 # 2) Selected most / least artist/title 
@@ -565,341 +707,6 @@ pie(tmp_sp,labels = lbls_bb, col=rainbow(length(lbls_bb)), main="Billboard")
 # cf) Analysis by genre -> pie chart (p124,; p102,104,106,109)
 
 # cf) bubble plot?
-
-# Top 10 compare in every week --------------------------------------------
-date_range = c(as.Date("2017-09-15"), as.Date("2017-09-21"))
-rank_range = c(1, 10)
-
-plot1 <- df_total %>%
-  filter(start_date >= (date_range[1]) & start_date <= (date_range[2])) %>%
-  filter(rank<=rank_range[2] & rank >= rank_range[1]) %>%
-  mutate(rank_bar = as.numeric(11-rank))
-  #group_by(title, source, artist) %>%
-  #summarise(sum_Stream = sum(streams)) %>%
-  #group_by(source) %>%
-  #top_n(-rank_range[2]) 
-  #top_n(rank, sum_Stream) %>%
-  #arrange(source, desc(sum_Stream))
-
-
-
-
-
-  #==> correatio 구할 수 있나?  p(191?, 176, 178)
-  #--> 모자이크 기법으로 각 주별 비교
-  
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Below is not the actual codes
-#========================================================================================================
-
-# Data Structure Check ---------------------------------------
-summary(raw.df)
-head(raw.df,5)
-names(raw.df)
-U.ranking <- unique(raw.df$RANKING)
-cat('# of ranking : \t\t', length(U.ranking)) # 100 ranks
-U.track_name <- unique(raw.df$TRACK_NAME)
-cat('# of unique track_name : \t', length(U.track_name)) # 9967 songs
-U.regions <- as.data.frame(unique(raw.df$REGION))
-names(U.regions) = "REGION"
-unique(raw.df$REGION)
-cat('# of unique regions : \t', length(U.regions$region_code)) # 54 Regions
-U.date <- summary(raw.df$DATE)
-U.date # 1/1/2017 ~ 1/9/2018
-U.artist <- unique(raw.df$ARTIST)
-cat('# of unique artists : \t', length(U.artist)) # 3757 artists
-#mday(raw.df$DATE[1000])
-str(raw.df)
-
-# Mapping regions -----------------------------------------------
-if(INIT){
-  region_code = read.csv('../Data/countries.csv', header = FALSE, stringsAsFactors=FALSE)
-  region_code <- region_code %>% rename(REGION = `V1`,  COUNTRY = `V2`)
-  region_code$REGION = tolower(region_code$REGION)
-  U.regions$REGION <- as.character(U.regions$REGION)
-  region_code_join <- left_join(U.regions, region_code, by = "REGION") %>% arrange(., REGION)
-  region_code_join$COUNTRY[[which(region_code_join$REGION == "global")]] = "Global"
-  write.csv(region_code_join, file='./region_code_reduced.csv', row.names=FALSE)
-  write.csv(region_code_join, file='../Data/region_code_reduced.csv', row.names=FALSE)
-} else {
-  region.dt <- fread("./region_code_reduced.csv", header=TRUE, stringsAsFactors = F)
-  region.df <- as.data.frame(region.dt)
-}
-
-# "RANKING"    "TRACK_NAME" "ARTIST"     "STREAMS"    "DATE"       "REGION"
-
-# Monthly Analysis ---------------------------------------------------------------
-#  When month is selected,
-#   0) scroll bar for top100 songs by ARTIST, TRACK_NAME
-#   1) top100 song countries
-#   2) genre
-#   3) steams counts by rank
-# 
-
-# All about selected song --------------------------------------------------------
-#  When song and year is selected,
-#   1) global map indicate !!
-type = c('Maroon 5','CCSO')
-date = as.Date(c("2017-01-01", "2017-01-31"), format=("%Y-%m-%d"))
-input = data.frame(type, date)
-#as.POSIXct(strptime("2017-01-31", "%Y-%m-%d"))
-#b = as.Date("2016-01-10", format("%Y-%m-%d"))
-
-a<- raw.df %>%
-  filter(ARTIST == input$type[1],
-         DATE > (input$date[1]) & DATE < (input$date[2]), REGION %in% c("ec", "fr", "ai"))
-  #arrange(REGION)
-rlist = c("ec", "fr", "ai")
-b<- raw.df %>%
-  filter(ARTIST == input$type[1],
-         DATE > (input$date[1]) & DATE < (input$date[2]), REGION %in% rlist)
-
-start = "2007-01-01"
-end = "2017-01-31"
-c<- unique(raw.df %>% filter(DATE > start & DATE < end) %>% select(ARTIST))
-
-library(ggthemes)
-# b <- raw.df %>% filter(ARTIST == input$type[1])
-# c <- raw.df %>% filter(DATE > (input$date[1]) & DATE < (input$date[2]))
-p <- ggplot(data = a, aes(x=DATE, y=RANKING))
-p + geom_point(aes(color='white')) + stat_smooth(method = "lm", se = FALSE) + facet_grid("~REGION") +
-  #theme_tufte() 
-  #theme(plot.background = element_rect(fill = "black"))
-  #theme_tufte() + theme(plot.background = element_rect(fill = "black"))
-  #theme_wsj()+ scale_colour_wsj("colors6")
-  #theme_calc()+ scale_colour_calc() +
-  theme_hc()+ scale_colour_hc() + theme(plot.background = element_rect(fill = "black")) +
-  #theme_bw() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),
-  #                   panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))
-
-
-
-g <- ggplot(data = raw.df[1:100,], aes(x=RANKING, y=STREAMS))
-g + geom_point()
-#g + geom_bar(stat='identity')
-
-## ============================================================================== Summarize Ranking 
-type = c('Maroon 5','CCSO')
-date = as.Date(c("2017-01-01", "2017-01-31"), format=("%Y-%m-%d"))
-input = data.frame(type, date)
-
-A<- raw.df %>%
-  filter(DATE >= (input$date[1]) & DATE <= (input$date[2]), REGION %in% c("ec", "fr", "us")) %>%
-  group_by(TRACK_NAME, REGION, ARTIST) %>%
-  summarise(sum_Stream = sum(STREAMS)) %>%
-  #tally(REGION) %>%
-  arrange(REGION, desc(sum_Stream))
-
-B <- A %>%
-  group_by(REGION) %>%
-  top_n(3, sum_Stream) %>%
-  arrange(REGION, desc(sum_Stream))
-    
-# reorder for ggplot2
-#B$ARTIST <- factor(B$ARTIST, levels = B$ARTIST[order(B$sum_Stream)])
-#B$ARTIST <- factor(B$ARTIST, levels = order(B$sum_Stream))
-B$ARTIST  # notice the changed order of factor levels
-
-#p <- ggplot(B, aes(x=sum_Stream, y=ARTIST))
-p <- ggplot(B, aes(x=ARTIST, y=sum_Stream, label=sum_Stream ))
-p + ggtitle(paste0("Rankings in each Countries (",input$date[1],"~",input$date[2],")" )) +
-  geom_bar(aes(fill= REGION), stat = "identity", position = "dodge") +
-  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
-  ylab("Total played number of Streams") +
-  xlab("ARTIST or Track Name") +
-  coord_flip() +
-  theme_tufte()
-  #theme(plot.background = element_rect(fill = "black"))
-  #theme_tufte() + theme(plot.background = element_rect(fill = "black"))
-  #theme_wsj() #+ scale_colour_wsj("colors6")
-  #theme_calc()+ scale_colour_calc() 
-  #theme_hc()+ scale_colour_hc()  
-  #+ theme(plot.background = element_rect(fill = "black"))
-  #theme_bw() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),
-  #                   panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))
-## ============================================================================== Summarize Ranking 
-
-
-
-
-
-
-
-# ------- Lylics ----------------------------------------
-raw.dt <- fread("../Data/data.csv", stringsAsFactors = F)
-raw.df <- as.data.frame(raw.dt)
-
-# Inspiration :
-# By using the daily ranking of the 200 most listened songs in 53 countries by Spotify users,
-# -	Track the current trend of music and forcast the next trend;
-# -	Track the flow or influence of top ranked musics from one country to another, make some business model for commercial;
-# -	Make a distribution map, and influence map by region, country, genre(music categories), and other information (such as season, weather, social event, etc);
-# -	Check a possibility to develop a music recommendation service based on user-preference? Trend of music by states or region
-#  ---------------------------------------------------------------
-# Can you predict what is the rank position or the number of streams a song will have in the future?
-# - How long does songs "resist" on the top 3, 5, 10, 20 ranking?
-# - What are the signs of a song that gets into the top rank to stay?
-# - Do continents share same top ranking artists or songs?
-# - Are people listening to the very same top ranking songs on countries far away from each other?
-# - How long time does a top ranking song takes to get into the ranking of neighbor countries?
-# ==============================================================
-
-
-
-
-head(A,1)
-# ---------------------------------------------------------------------------------
-# Change to time series for "STREAMS"
-library(xts)
-#sum(is.na(raw.df))
-streams.ts <- xts(raw.df[,c(-1,-2,-3,-5,-6)], order.by=raw.df[,"DATE"])
-#returns <- diff(streams.ts, arithmetic=FALSE ) - 1
-row_sel = seq(1,900000,200)
-#dygraph(streams.ts[row_sel])
-#dygraph(streams.ts[row_sel]) %>% dyRangeSelector()
-dygraph(streams.ts[row_sel]) %>%
-  #dySeries("mdeaths", label = "Male") %>%
-  dySeries("V1", label = "STREAMS") %>%
-  #dyOptions(stackedGraph = TRUE) %>%
-  dyRangeSelector(height = 20)
-# ---------------------------------------------------------------------------------
-lungDeaths <- cbind(mdeaths, fdeaths)
-dygraph(lungDeaths)
-
-
-
-#-------------------------------------------------------
-#plotly test
-library(plotly)
-
-set.seed(100)
-d <- diamonds[sample(nrow(diamonds), 1000), ]
-
-p <- ggplot(data = d, aes(x = carat, y = price)) +
-  geom_point(aes(text = paste("Clarity:", clarity)), size = 4) +
-  geom_smooth(aes(colour = cut, fill = cut)) + facet_wrap(~ cut)
-
-p <- ggplotly(p)
-
-#tmp <- xts(raw.df[,c(-1,-2,-3,-5,-6)], order.by=as.Date(raw.df[,6], "%Y-%m-%d"))
-
-#
-#  daily returns
-#
-
-#
-#  weekly open, high, low, close reports
-#
-to.weekly(tmp, name="Hero")
-
-# library(readr)
-# library(ggplot2)
-# library(dplyr)
-library(scales)
-# library(forecast)
-library(tseries) # install.packages("tseries")
-
-theme_paper <- function() {
-  theme_update(panel.background  = element_blank(),
-               panel.grid.major  = element_blank(),
-               axis.title        = element_text(size = 14, face = "bold"),
-               axis.title.x      = element_text(vjust = 0.5),
-               axis.title.y      = element_text(angle = 90, vjust = 1),
-               axis.text         = element_text(size = 12),
-               legend.title      = element_text(size = 17, face="bold"), 
-               legend.text       = element_text(size = 17),
-               strip.text        = element_text(size = 14),
-               plot.margin       = unit(c(1, 1, 1, 1), "lines"),
-               plot.title        = element_text(face="bold"))
-}
-
-theme_set(theme_bw())
-theme_paper()
-
-# Take one song that has data in one region only ("pl")
-seven_nation_army = raw.df %>% 
-  filter(ARTIST == "Shakira", 
-         TRACK_NAME == 'Chantaje',
-         REGION %in% c("gb", "ie", "pl"))
-
-ggplot(seven_nation_army, aes(DATE, position)) +
-  xlab("Date") +
-  ylab("Rank position") +
-  geom_point() +
-  scale_y_reverse(breaks=seq(1, 200, 20)) +
-  scale_x_date(breaks=date_breaks("month"),
-               labels=date_format("%b")) +
-  geom_smooth() +
-  facet_wrap(~REGION, ncol=1)
-
-seven_nation_army_in_pl = seven_nation_army %>%
-  filter(REGION == "pl")
-
-seven_nation_army_in_pl$streams_timeseries = ts(seven_nation_army_in_pl[, c('STREAMS')])
-seven_nation_army_in_pl$streams_timeseries_week = ma(seven_nation_army_in_pl$streams_timeseries, order=7)
-seven_nation_army_in_pl$streams_timeseries_month = ma(seven_nation_army_in_pl$streams_timeseries, order=30)
-
-
-
-
-# # ref < pie chart > ===================================================
-# 
-# # Input the ad data
-# ad = data.frame(
-#   type = c("Poster", "Billboard", "Bus", "Digital"),
-#   n = c(529, 356, 59, 81)
-# )
-# 
-# # Bar plot
-# library(ggplot2)
-# ggplot(data = ad, aes(x = type, y = n, fill = type)) +
-#   geom_bar(stat = "identity", show_guide = FALSE) +
-#   theme_bw()
-# 
-# # Add addition columns to data, needed for donut plot.
-# ad$fraction = ad$n / sum(ad$n)
-# ad$ymax = cumsum(ad$fraction)
-# ad$ymin = c(0, head(ad$ymax, n = -1))
-# 
-# # Donut plot
-# ggplot(data = ad, aes(fill = type, ymax = ymax, ymin = ymin, xmax = 4, xmin = 3)) +
-#   geom_rect(colour = "grey30", show_guide = FALSE) +
-#   coord_polar(theta = "y") +
-#   xlim(c(0, 4)) +
-#   theme_bw() +
-#   theme(panel.grid=element_blank()) +
-#   theme(axis.text=element_blank()) +
-#   theme(axis.ticks=element_blank()) +
-#   geom_text(aes(x = 3.5, y = ((ymin+ymax)/2), label = type)) +
-#   xlab("") +
-#   ylab("")
-# #=======================================================================
 
 # Create a shareable link to your chart
 # Set up API credentials: https://plot.ly/r/getting-started
