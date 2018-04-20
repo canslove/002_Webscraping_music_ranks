@@ -33,11 +33,14 @@ library(plotly)
 #library(foreign) 
 
 setwd("C:/Users/SAMSUNG/Documents/A.MyDoc/A.DriveE/DataScience/NYCDSA/40_Projects/C02.WebScraping/Github/Analysis")
-
-# Data Read/Modify/Write --------------------------------
 rm(list=ls())
+
+# Run Parameters -------------------
+show_plot = 0
 INIT = 1
 N_RANK = 100
+
+# Data Read/Modify/Write --------------------------------
 
 #raw.dt <- fread("../Data/data.csv", stringsAsFactors = F)
 #raw.df <- as.data.frame(raw.dt)
@@ -64,14 +67,18 @@ colnames(df_billboard)
 colnames(df_billboard_albums)
 colnames(df_itunes)
 
+# column name change --------------------------------
+colnames(df_billboard) = gsub("weeks", "prev_rank", colnames(df_billboard))
+colnames(df_billboard_albums) = gsub("weeks", "prev_rank", colnames(df_billboard_albums))
+  
 # column name tolower --------------------------------
 #names(df) <- tolower(names(df))
 
 # reorder columns --------------------------------
 df_spotify <- df_spotify[c("start_date", "end_date", "rank","title", "artist", "streams")]
 #df_youtube <- df_youtube[c("start_date", "end_date", "rank","title", "artist", "views")]
-df_billboard <- df_billboard[c("date", "rank","title", "artist", "weeks")]
-df_billboard_albums <- df_billboard_albums[c("date", "rank","title", "artist", "weeks")]
+df_billboard <- df_billboard[c("date", "rank","title", "artist", "prev_rank")]
+df_billboard_albums <- df_billboard_albums[c("date", "rank","title", "artist", "prev_rank")]
 df_itunes <- df_itunes[c("date", "release_date", "title", "artist", "genre")]
 
 # Summary --------------------------------
@@ -97,8 +104,8 @@ summary(df_spotify)
 df_youtube_org <- df_youtube
 df_youtube <- df_youtube %>% 
   mutate(start_date = as.Date(start_date, "%Y-%m-%d")) %>%
-  mutate(end_date = as.Date(end_date, "%Y-%m-%d")) #%>%
-  #mutate(rank = as.integer(rank)) # first, rank should be changed into number
+  mutate(end_date = as.Date(end_date, "%Y-%m-%d")) %>%
+  mutate(views = as.numeric(gsub(pattern = "M", replacement = "", x = views, ignore.case = F, fixed = T))*1000000)
 which( rowSums( is.na(df_youtube) ) != 0 )
 if(sum(is.na(df_youtube))!=0){
   df_youtube <- na.omit(df_youtube)
@@ -187,10 +194,14 @@ df_youtube$title[1584] <- "Not Hot"
 df_youtube$title <- tolower(df_youtube$title)
 df_billboard$title <- tolower(df_billboard$title)
 
+df_spotify$artist <- tolower(df_spotify$artist)
+df_youtube$artist <- tolower(df_youtube$artist)
+df_billboard$artist <- tolower(df_billboard$artist)
+
 # Data join ---------------------------------------------------------------
 df_sp = subset(df_spotify, select = -c(streams))
 df_yt = subset(df_youtube, select = -c(views))
-df_bb = subset(df_billboard, select = -c(weeks))
+df_bb = subset(df_billboard, select = -c(prev_rank))
 df_total = rbind(df_sp, df_yt, df_bb)
 
 df_total$title <- tolower(df_total$title)
@@ -214,45 +225,51 @@ df_sel <- df_total %>%
   mutate(rank_bar = as.numeric(11-rank))
 write.csv(df_sel, file='write_csv/df_sel.csv') # for plotly
 
-p <- ggplot(df_sel, aes(x=-rank, y=rank_bar, label=title, group=source )) +
-  geom_bar(aes(fill= source), stat = "identity") + #, position = "dodge") +
-  ggtitle(paste0("Rankings in each Sources (",rank_range[1],"~",rank_range[2],")@week of ", date_range[1] )) +
-  geom_text(size = 3.5, position = position_stack(vjust = 0.7)) + #1.2
-  facet_grid(.~source)+
-  xlab("Rank") +
-  ylab("Track Name") +
-  coord_flip() +
-  theme_tufte()
-ggplotly(p)
+if(show_plot){
+  p <- ggplot(df_sel, aes(x=-rank, y=rank_bar, label=title, group=source )) +
+    geom_bar(aes(fill= source), stat = "identity") + #, position = "dodge") +
+    ggtitle(paste0("Rankings in each Sources (",rank_range[1],"~",rank_range[2],")@week of ", date_range[1] )) +
+    geom_text(size = 3.5, position = position_stack(vjust = 0.7)) + #1.2
+    facet_grid(.~source)+
+    xlab("Rank") +
+    ylab("Track Name") +
+    coord_flip() +
+    theme_tufte()
+  ggplotly(p)
+}
 
 # Top 10 glance to compare in a week [dodge mode] -----------------------------------
 #   -> Arrange by rank per sources (but hard to distinguish)
-p <- ggplot(df_sel, aes(x=-rank, y=rank_bar)) +#, label= paste0(title,"(",artist,")" ))) +
-  geom_bar(aes(fill= source), stat = "identity" , position = "dodge") +
-  #geom_label(aes(fill = source), colour = "white", fontface = "bold") +
-  geom_text(aes(x=-rank, y=rank_bar, label= paste0(title,"(",artist,")" ), group=source), 
-            size = 3, position = position_dodge(width = 1.0)) +
-  ggtitle(paste0("Rankings in each Sources (",rank_range[1],"~",rank_range[2],") in week of ", date_range[1] )) +
-  xlab("Rank") +
-  ylab("Track Name") +
-  coord_flip() +
-  theme_tufte()
-#resolution(df_sel$x)
-ggplotly(p)
+if(show_plot){
+  p <- ggplot(df_sel, aes(x=-rank, y=rank_bar)) +#, label= paste0(title,"(",artist,")" ))) +
+    geom_bar(aes(fill= source), stat = "identity" , position = "dodge") +
+    #geom_label(aes(fill = source), colour = "white", fontface = "bold") +
+    geom_text(aes(x=-rank, y=rank_bar, label= paste0(title,"(",artist,")" ), group=source), 
+              size = 3, position = position_dodge(width = 1.0)) +
+    ggtitle(paste0("Rankings in each Sources (",rank_range[1],"~",rank_range[2],") in week of ", date_range[1] )) +
+    xlab("Rank") +
+    ylab("Track Name") +
+    coord_flip() +
+    theme_tufte()
+  #resolution(df_sel$x)
+  ggplotly(p)
+}
 
 # Top 10 glance to compare in a week [by artist] -----------------------------------
 # Arranging by artist (rank is mixed but easy to see rank difference)
-p <- ggplot(df_sel, aes(x=artist, y=rank_bar)) + #, label=rank )) +
-  geom_bar(aes(fill= source), stat = "identity", position = "dodge") +
-  #geom_text(size = 3, position = position_stack(vjust = 0.3)) +
-  geom_text(aes(x=artist, y=rank_bar, label= rank, group=source),
-            size = 4, position = position_dodge(width = 0.9), vjust=-0.5, hjust= 1.0) +
-  ggtitle(paste0("Rankings in each Sources (",rank_range[1],"~",rank_range[2],") in week of ", date_range[1])) +
-  ylab("Rank") +
-  xlab("Artist") +
-  coord_flip() +
-  theme_tufte()
-ggplotly(p)
+if(show_plot){
+  p <- ggplot(df_sel, aes(x=artist, y=rank_bar)) + #, label=rank )) +
+    geom_bar(aes(fill= source), stat = "identity", position = "dodge") +
+    #geom_text(size = 3, position = position_stack(vjust = 0.3)) +
+    geom_text(aes(x=artist, y=rank_bar, label= rank, group=source),
+              size = 4, position = position_dodge(width = 0.9), vjust=-0.5, hjust= 1.0) +
+    ggtitle(paste0("Rankings in each Sources (",rank_range[1],"~",rank_range[2],") in week of ", date_range[1])) +
+    ylab("Rank") +
+    xlab("Artist") +
+    coord_flip() +
+    theme_tufte()
+  ggplotly(p)
+}
 
 
 # Wordcloud(p188, p184, 182) for artist and title -> To find who and which is most or least significant.
@@ -322,71 +339,72 @@ write.csv(tmt_all_injoin, file = "write_csv/tmt_all_injoin.csv")
 #install_github("lchiffon/wordcloud2")
 library(wordcloud2)
 
-#wordcloud2(data = tm_sp, size = 1.0)
-wordcloud2(tm_sp, size = 1.0, backgroundColor = "black", minRotation = -pi/2, maxRotation = -pi/2)
-wordcloud2(tm_yt, size = 1.0, backgroundColor = "black", minRotation = -pi/2, maxRotation = -pi/2)
-wordcloud2(tm_bb, size = 1.0, backgroundColor = "black", minRotation = -pi/2, maxRotation = -pi/2)
-wordcloud2(tm_sp, size = 1.0, minRotation = -pi/6, maxRotation = -pi/6, rotateRatio = 1)
-wordcloud2(tm_yt, size = 1.0, minRotation = -pi/6, maxRotation = -pi/6, rotateRatio = 1)
-wordcloud2(tm_bb, size = 1.0, minRotation = -pi/6, maxRotation = -pi/6, rotateRatio = 1)
-
-# wordcloud2 with shape
-#wordcloud2(tm_sp, size = 1, shape = 'star') # "cardioid", "diamond"
-
-# Lettercloud ---------------------------------------
-#letterCloud( demoFreq, word = "R", color='random-light' , backgroundColor="black")
-#letterCloud( demoFreq, word = "PEACE", color="white", backgroundColor="pink")
-letterCloud(tm_sp, word = "Spotify", color='random-light' , backgroundColor="black")
-letterCloud(tm_yt, word = "YouTube", color='random-light' , backgroundColor="black")
-letterCloud(tm_bb, word = "Billboard", color='random-light' , backgroundColor="black")
-
-# with backgroud image
-#wordcloud2(tm_sp, figPath = "./figures/twitter.png", size = 1.5,color = "skyblue")
-wordcloud2(tm_sp, figPath = "./figures/spotify.png", size = 1.5,color = "green")
-wordcloud2(tm_yt, figPath = "./figures/youtube.png", size = 1.5,color = "red")
-wordcloud2(tm_bb, figPath = "./figures/billboard.png", size = 1.5,color = "black")
-
-# Pie Charts  w/ Freq ==================================================================
-
-# frequency distribution
-#h = c(mean(tm_sp$freq),mean(tm_yt$freq),mean(tm_bb$freq))
-h = c(20,20,20)
-p <- ggplot(data = tm_sp, aes(x = word, y = freq, fill = word)) +
-  geom_bar(stat = "identity", show.legend = FALSE) +
-  geom_hline(aes(yintercept = h[1])) +
-  xlab("Artists") +
-  ylab("Number of Frequency ranked in Top 100") +
-  ggtitle(paste0("Artists and its Ranking frequency in Spotify Top100 (", ViewPeriod[1], "~", ViewPeriod[2] ,")")) +
-  geom_text(aes(0, h[1], label=paste0('cutoff_frequency', as.character(format(round(h[1], 2), nsmall = 2))), hjust=-2, vjust=-1)) +
-  theme_bw()
-q <- p + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-q
-ggplotly(p)
-
-p <- ggplot(data = tm_yt, aes(x = word, y = freq, fill = word)) +
-  geom_bar(stat = "identity", show.legend = FALSE) +
-  geom_hline(aes(yintercept = h[2])) +
-  xlab("Artists") +
-  ylab("Number of Frequency ranked in Top 100") +
-  ggtitle(paste0("Artists and its Ranking frequency in YouTube Top100 (", ViewPeriod[1], "~", ViewPeriod[2] ,")")) +
-  geom_text(aes(0, h[2], label=paste0('cutoff_frequency', as.character(format(round(h[2], 2), nsmall = 2))), hjust=-2, vjust=-1)) +
-  theme_bw()
-q <- p + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-q
-ggplotly(p)
-
-p <- ggplot(data = tm_bb, aes(x = word, y = freq, fill = word)) +
-  geom_bar(stat = "identity", show.legend = FALSE) +
-  geom_hline(aes(yintercept = h[3])) +
-  xlab("Artists") +
-  ylab("Number of Frequency ranked in Top 100") +
-  ggtitle(paste0("Artists and its Ranking frequency in Billboard Top100 (", ViewPeriod[1], "~", ViewPeriod[2] ,")")) +
-  geom_text(aes(0, h[3], label=paste0('cutoff_frequency', as.character(format(round(h[3], 2), nsmall = 2))), hjust=-2, vjust=-1)) +
-  theme_bw()
-q <- p + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-q
-ggplotly(p)
-
+if(show_plot){
+  #wordcloud2(data = tm_sp, size = 1.0)
+  wordcloud2(tm_sp, size = 1.0, backgroundColor = "black", minRotation = -pi/2, maxRotation = -pi/2)
+  wordcloud2(tm_yt, size = 1.0, backgroundColor = "black", minRotation = -pi/2, maxRotation = -pi/2)
+  wordcloud2(tm_bb, size = 1.0, backgroundColor = "black", minRotation = -pi/2, maxRotation = -pi/2)
+  wordcloud2(tm_sp, size = 1.0, minRotation = -pi/6, maxRotation = -pi/6, rotateRatio = 1)
+  wordcloud2(tm_yt, size = 1.0, minRotation = -pi/6, maxRotation = -pi/6, rotateRatio = 1)
+  wordcloud2(tm_bb, size = 1.0, minRotation = -pi/6, maxRotation = -pi/6, rotateRatio = 1)
+  
+  # wordcloud2 with shape
+  #wordcloud2(tm_sp, size = 1, shape = 'star') # "cardioid", "diamond"
+  
+  # Lettercloud ---------------------------------------
+  #letterCloud( demoFreq, word = "R", color='random-light' , backgroundColor="black")
+  #letterCloud( demoFreq, word = "PEACE", color="white", backgroundColor="pink")
+  letterCloud(tm_sp, word = "Spotify", color='random-light' , backgroundColor="black")
+  letterCloud(tm_yt, word = "YouTube", color='random-light' , backgroundColor="black")
+  letterCloud(tm_bb, word = "Billboard", color='random-light' , backgroundColor="black")
+  
+  # with backgroud image
+  #wordcloud2(tm_sp, figPath = "./figures/twitter.png", size = 1.5,color = "skyblue")
+  wordcloud2(tm_sp, figPath = "./figures/spotify.png", size = 1.5,color = "green")
+  wordcloud2(tm_yt, figPath = "./figures/youtube.png", size = 1.5,color = "red")
+  wordcloud2(tm_bb, figPath = "./figures/billboard.png", size = 1.5,color = "black")
+  
+  # Pie Charts  w/ Freq ==================================================================
+  
+  # frequency distribution
+  #h = c(mean(tm_sp$freq),mean(tm_yt$freq),mean(tm_bb$freq))
+  h = c(20,20,20)
+  p <- ggplot(data = tm_sp, aes(x = word, y = freq, fill = word)) +
+    geom_bar(stat = "identity", show.legend = FALSE) +
+    geom_hline(aes(yintercept = h[1])) +
+    xlab("Artists") +
+    ylab("Number of Frequency ranked in Top 100") +
+    ggtitle(paste0("Artists and its Ranking frequency in Spotify Top100 (", ViewPeriod[1], "~", ViewPeriod[2] ,")")) +
+    geom_text(aes(0, h[1], label=paste0('cutoff_frequency', as.character(format(round(h[1], 2), nsmall = 2))), hjust=-2, vjust=-1)) +
+    theme_bw()
+  q <- p + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  q
+  ggplotly(p)
+  
+  p <- ggplot(data = tm_yt, aes(x = word, y = freq, fill = word)) +
+    geom_bar(stat = "identity", show.legend = FALSE) +
+    geom_hline(aes(yintercept = h[2])) +
+    xlab("Artists") +
+    ylab("Number of Frequency ranked in Top 100") +
+    ggtitle(paste0("Artists and its Ranking frequency in YouTube Top100 (", ViewPeriod[1], "~", ViewPeriod[2] ,")")) +
+    geom_text(aes(0, h[2], label=paste0('cutoff_frequency', as.character(format(round(h[2], 2), nsmall = 2))), hjust=-2, vjust=-1)) +
+    theme_bw()
+  q <- p + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  q
+  ggplotly(p)
+  
+  p <- ggplot(data = tm_bb, aes(x = word, y = freq, fill = word)) +
+    geom_bar(stat = "identity", show.legend = FALSE) +
+    geom_hline(aes(yintercept = h[3])) +
+    xlab("Artists") +
+    ylab("Number of Frequency ranked in Top 100") +
+    ggtitle(paste0("Artists and its Ranking frequency in Billboard Top100 (", ViewPeriod[1], "~", ViewPeriod[2] ,")")) +
+    geom_text(aes(0, h[3], label=paste0('cutoff_frequency', as.character(format(round(h[3], 2), nsmall = 2))), hjust=-2, vjust=-1)) +
+    theme_bw()
+  q <- p + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  q
+  ggplotly(p)
+}
 # Word-Freq df cleaning cut-off = 30 freq. --
 #title_freq = read.csv('./y_codeoutput/title_freq.csv', stringsAsFactors=FALSE)
 #title_freq$word = tolower(title_freq$word)
@@ -452,6 +470,9 @@ for (i in 1:length(singer_list)){
 }
 singer_list
 tag_list
+for (i in 1:length(tag_list)){
+  print(get(tag_list[i]))
+}
 
 # rank trend comaprison b/w service provider
 plot_trend <- function(at_sel, title_sel){
@@ -494,9 +515,12 @@ for (songs in tag_list){
   print(paste("------- ", songs, "--------"))
   print(get(songs))
 }
-
+print(strrep("=", 50))
+print(strrep("=", 50))
 print("There are too many songs for one singer !!!")
 print("Have to list up what songs were popular in common instead of singer !!")
+print(strrep("=", 50))
+print(strrep("=", 50))
 
 # ==========================================================================================
 # list up what songs were popular in common instead of singer ==============================
@@ -508,7 +532,8 @@ cleaning_df_w_factor <- function(df){
     for (j in 1:dim(df)[2]){
       #for (j in seq(1,6,2)){
       a = gsub("[(].*[)]", "", df[i,j])
-      df[i,j] = trimws(a, which = 'both')
+      b = gsub("[.]", "", a)
+      df[i,j] = trimws(b, which = 'both')
     }
   }
   return(df)
@@ -517,7 +542,8 @@ cleaning_df_w_factor <- function(df){
 cleaning_chr <- function(chr){
   for (i in 1:length(chr)){
       a = gsub("[(].*[)]", "", chr[i])
-      chr[i] = trimws(a, which = 'both')
+      b = gsub("[.]", "", a)
+      chr[i] = trimws(b, which = 'both')
     }
   return(chr)
 }
@@ -560,17 +586,67 @@ title_in_common = paste0("over",threshold)
 assign(title_in_common, ttm_all_injoin_artist %>% filter(Spotify > threshold & YouTube > threshold & BillBoard > threshold))
 write.csv(get(title_in_common), file = "write_csv/title_in_common.csv")
 
-wordcloud2(ttm_sp, size = 1.0, backgroundColor = "black", minRotation = -pi/2, maxRotation = -pi/2)
-wordcloud2(ttm_yt, size = 1.0, backgroundColor = "black", minRotation = -pi/2, maxRotation = -pi/2)
-wordcloud2(ttm_bb, size = 1.0, backgroundColor = "black", minRotation = -pi/2, maxRotation = -pi/2)
-
 # Word-Freq df cleaning cut-off = 30 freq. --
 ttm_sp10over = ttm_sp[-c(1:10),]
 sum(ttm_sp10over$freq)
 
-ttm_sp10 <- ttm_sp[c(1:10),] %>% mutate(source = "spotify") # ttm_sp10$source = "spotify"
-ttm_yt10 <- ttm_yt[c(1:10),] %>% mutate(source = "youtube")
-ttm_bb10 <- ttm_bb[c(1:10),] %>% mutate(source = "billboard")
+head(ttm_all_injoin_artist,10)
+
+# |||||||||||||||||||||||||||||
+# ---- Another Problem ----
+# |||||||||||||||||||||||||||||
+
+print(strrep("=", 50))
+print("There is another porblem !!!")
+print("Same song name with differnt signer !!")
+print("artist-title should be tied, then count the frequency !!")
+print(strrep("=", 50))
+
+# ==========================================================================================
+# list up with artist-title combind data ==============================
+# ==========================================================================================
+
+title_sp <- cleaning_df_w_factor(df_sp) %>%
+  select(start_date, rank, title, artist) %>%
+  group_by(title, artist) %>%
+  #distinct(artist) %>%
+  summarise(freq=n()) %>%
+  arrange(desc(freq))
+
+title_yt <- cleaning_df_w_factor(df_yt) %>%
+  select(start_date, rank, title, artist) %>%
+  group_by(title, artist) %>%
+  #distinct(artist) %>%
+  summarise(freq=n()) %>%
+  arrange(desc(freq))
+
+title_bb <- cleaning_df_w_factor(df_bb) %>%
+  select(start_date, rank, title, artist) %>%
+  group_by(title, artist) %>%
+  #distinct(artist) %>%
+  summarise(freq=n()) %>%
+  arrange(desc(freq))
+
+title_sp_yt_injoin = inner_join(title_sp, title_yt, by = "title")
+title_all_injoin = inner_join(title_sp_yt_injoin, title_bb, by = "title")
+colnames(title_all_injoin) <- c("title", "spotify", "sp_freq", "youtube", "yt_freq", "billboard", "bb_freq")
+write.csv(title_all_injoin, file = "write_csv/title_all_injoin.csv")
+
+threshold = 14
+title_in_common2 = paste0("over",threshold)
+assign(title_in_common2, title_all_injoin %>% filter(sp_freq > threshold & yt_freq > threshold & bb_freq > threshold))
+write.csv(get(title_in_common2), file = "write_csv/title_in_common2.csv")
+
+if(show_plot) {
+  wordcloud2(title_sp[,c("title","freq")], size = 1.0, backgroundColor = "black", minRotation = -pi/2, maxRotation = -pi/2)
+  wordcloud2(title_yt[,c("title","freq")], size = 1.0, backgroundColor = "black", minRotation = -pi/2, maxRotation = -pi/2)
+  wordcloud2(title_bb[,c("title","freq")], size = 1.0, backgroundColor = "black", minRotation = -pi/2, maxRotation = -pi/2)
+}
+
+# Word-Freq df cleaning cut-off = 30 freq. --
+ttm_sp10 <- title_sp[c(1:10),c("title","freq")] %>% mutate(source = "spotify") # ttm_sp10$source = "spotify"
+ttm_yt10 <- title_yt[c(1:10),c("title","freq")] %>% mutate(source = "youtube")
+ttm_bb10 <- title_bb[c(1:10),c("title","freq")] %>% mutate(source = "billboard")
 title_freq = rbind(ttm_sp10, ttm_yt10, ttm_bb10)
 title_freq
 
@@ -581,7 +657,7 @@ title_freq <- title_freq %>%
   mutate(percentage = round(fraction*100)) %>%
   mutate(ymax = cumsum(fraction)) %>%
   mutate(ymin = c(0, head(ymax, n = -1))) %>%
-  mutate(lbls = paste(word, percentage)) %>%  # add percents to labels 
+  mutate(lbls = paste(title, percentage)) %>%  # add percents to labels 
   mutate(lbls = paste(lbls, "%", sep=""))
 
 ttmp_sp = as.numeric(unlist(as.list(title_freq[title_freq$source=="spotify","freq"])))
@@ -603,7 +679,6 @@ write.csv(lbls_sp, file='write_csv/lbls_sp.csv') # for plotly
 write.csv(lbls_yt, file='write_csv/lbls_yt.csv') # for plotly
 write.csv(lbls_bb, file='write_csv/lbls_bb.csv') # for plotly
 
-
 # * Slope chart(p112) -> show how ranking differ site from site
 
 # rank trend comaprison b/w service provider
@@ -616,16 +691,16 @@ plot_trend <- function(at_sel, title_sel){
   a <- df_total_clean %>%
     filter(artist == at_sel) %>%
     filter(title == title_sel) #%>%
-    #filter(title %in% title_sel) %>%
+  #filter(title %in% title_sel) %>%
   p <- ggplot(a, aes(x=start_date, y=-1*rank, group = source)) +
     geom_point(aes(color = source)) +
     geom_line(aes(color = source)) +
     theme_wsj()+ scale_colour_wsj("colors6") +
     ggtitle(paste0("Weekly Ranking Trend - ", at_sel,"(",title_sel,")")) + #Selected Artists") +
     xlab("DATE") + ylab("RANKING") #+
-    #theme(plot.title = element_text(color="white", size=14, face="bold.italic"),
-    #      axis.title.x = element_text(color="grey", size=12),#, face="bold"),
-    #      axis.title.y = element_text(color="grey", size=12))#, face="bold"))
+  #theme(plot.title = element_text(color="white", size=14, face="bold.italic"),
+  #      axis.title.x = element_text(color="grey", size=12),#, face="bold"),
+  #      axis.title.y = element_text(color="grey", size=12))#, face="bold"))
   ggplotly(p)
 }
 
@@ -650,35 +725,38 @@ plot_trend <- function(at_sel, title_sel){
 # mi gente        | J Balvin
 # no limit        | G-Eazy
 
-plot_trend(tolower('Logic'),'1-800-273-8255')
-plot_trend(tolower('Halsey'),'bad at love')
-#plot_trend(tolower('Savage'),'bank account')
-plot_trend(tolower('Imagine Dragons'),'believer')
-plot_trend(tolower('Cardi B'),'bodak yellow')
-plot_trend(tolower('Post Malone'),'congratulations')
-plot_trend(tolower('Lil Pump'),'gucci gang')
-plot_trend(tolower('Camila Cabello'),'havana')
-plot_trend(tolower('Gucci Mane'),'i get the bag')
-plot_trend(tolower('Dua Lipa'),'new rules')
-plot_trend(tolower('A$AP Ferg'),'plain jane')
-plot_trend(tolower('Post Malone'),'rockstar')
-plot_trend(tolower('Kodak Black'),'roll in peace')
-plot_trend(tolower('Ed Sheeran'),'shape of you')
-plot_trend(tolower('Demi Lovato'),'sorry not sorry')
-plot_trend(tolower('Imagine Dragons'),'thunder')
-plot_trend(tolower('Khalid'),'young dumb & broke')
-plot_trend(tolower('J Balvin'),'mi gente')
-plot_trend(tolower('G-Eazy'),'no limit')
+if(show_plot){
+  plot_trend(tolower('Logic'),'1-800-273-8255')
+  plot_trend(tolower('Halsey'),'bad at love')
+  plot_trend(tolower('21 savage'),'bank account')
+  plot_trend(tolower('Imagine Dragons'),'believer')
+  plot_trend(tolower('Cardi B'),'bodak yellow')
+  plot_trend(tolower('Post Malone'),'congratulations')
+  plot_trend(tolower('Lil Pump'),'gucci gang')
+  plot_trend(tolower('Camila Cabello'),'havana')
+  plot_trend(tolower('Gucci Mane'),'i get the bag')
+  plot_trend(tolower('Dua Lipa'),'new rules')
+  plot_trend(tolower('A$AP Ferg'),'plain jane')
+  plot_trend(tolower('Post Malone'),'rockstar')
+  plot_trend(tolower('Kodak Black'),'roll in peace')
+  plot_trend(tolower('Ed Sheeran'),'shape of you')
+  plot_trend(tolower('Demi Lovato'),'sorry not sorry')
+  plot_trend(tolower('Imagine Dragons'),'thunder')
+  plot_trend(tolower('Khalid'),'young dumb & broke')
+  plot_trend(tolower('J Balvin'),'mi gente')
+  plot_trend(tolower('G-Eazy'),'no limit')
+  
+  plot_trend(tolower('Taylor swift'),'look what you made me do')
+  plot_trend(tolower('Taylor swift'),'...ready for it?')
+  plot_trend(tolower('Taylor swift'),'end game')
+  plot_trend(tolower('Post Malone'),'candy paint')
+  plot_trend(tolower('Ed Sheeran'),'perfect')
+}
 
-plot_trend(tolower('Taylor swift'),'look what you made me do')
-plot_trend(tolower('Taylor swift'),'...ready for it?')
-plot_trend(tolower('Taylor swift'),'end game')
-plot_trend(tolower('Post Malone'),'candy paint')
-plot_trend(tolower('Ed Sheeran'),'perfect')
-
-#-------
+# ########
 # EOF
-#-------
+# ########
+
 
 # -------------------------
 # Appendix for future use
@@ -689,10 +767,10 @@ plot_trend(tolower('Ed Sheeran'),'perfect')
 #   sizes to represent different groups of data.
 
 #install.packages("vcd")
-library(vcd)
-mosaic(Survived ~ Class + Sex, data=Titanic, shade=T,
-       highlighting_fill=c('red4',"skyblue"),
-       highlighting_direction="left")
+# library(vcd)
+# mosaic(Survived ~ Class + Sex, data=Titanic, shade=T,
+#        highlighting_fill=c('red4',"skyblue"),
+#        highlighting_direction="left")
 # ------------------------------------------------------------
 
 
